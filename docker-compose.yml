@@ -1,0 +1,44 @@
+services:
+  web:
+    build: .
+    volumes:
+      - .:/app
+      - static_volume:/app/static
+    environment:
+      - POSTGRES_DB=todos
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_HOST=db
+      - EMAIL_HOST=mailhog
+    depends_on:
+      - db
+      - mailhog
+    ports:
+    - "8330:8000"
+
+  nginx:
+    build: ./nginx
+    volumes:
+      - static_volume:/app/static
+    ports:
+      - "8481:80"
+    depends_on:
+      - web
+
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=todos
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "8025:8025"
+
+volumes:
+  postgres_data:
+  static_volume:

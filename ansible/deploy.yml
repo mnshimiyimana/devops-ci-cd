@@ -1,0 +1,107 @@
+- name: Deploy Todo Project
+  hosts: all
+  become: true
+  vars:
+    ansible_user: pelin
+    ansible_become_password: "pelin"
+    # docker_compose_version: "1.29.2"
+  # tasks:
+  #   - name: Remove any existing Docker packages
+  #     apt:
+  #       name: "{{ item }}"
+  #       state: absent
+  #     with_items:
+  #       - docker.io
+  #       - containerd
+  #       - containerd.io
+
+  #   - name: Update apt package cache
+  #     apt:
+  #       update_cache: yes
+
+  #   - name: Install Docker
+  #     apt:
+  #       name: docker.io
+  #       state: present
+  #       update_cache: yes
+
+    # - name: Ensure Docker service is started
+    #   systemd:
+    #     name: docker
+    #     state: started
+    #     enabled: true
+    #   register: docker_service
+    #   ignore_errors: yes
+    # - debug:
+    #     var: docker_service
+
+    # - name: Download Docker Compose binary
+    #   get_url:
+    #     url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-{{ ansible_system }}-{{ ansible_architecture }}"
+    #     dest: /usr/local/bin/docker-compose
+    #     mode: 'u+x'
+
+
+    # - name: Ensure Docker Compose is installed
+    #   command: docker-compose --version
+    #   register: docker_compose_version_check
+    #   failed_when: docker_compose_version_check.rc != 0
+    #   changed_when: false
+
+  tasks:
+    - name: Gather facts
+      ansible.builtin.setup:
+    - name: Ensure Python 3 and pip are installed
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - python3
+        - python3-pip
+
+    - name: Install required Python packages
+      pip:
+        name: ansible
+        executable: pip3
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Install Docker Python Module
+      pip:
+        name: docker
+        executable: pip3
+
+    - name: Pull the latest Docker images
+      docker_image:
+        name: maumau24/todo-project
+        # tag: latest
+        source: pull
+        docker_host: unix:///var/run/docker.sock
+      # environment:
+      #   DOCKER_HOST: tcp://localhost:2377
+      
+    - name: Create docker-compose.yml file
+      copy:
+        dest: "{{ app_directory }}/docker-compose.yml"
+        content: |
+          version: "3.8"
+          services:
+            app:
+              image: maumau24/todo-project:latest
+              ports:
+                - "6500:1025"
+              env_file:
+                - .env
+          networks:
+            default:
+              external:
+                name: my_network
+
+    - name: Run docker-compose to start the application
+      community.docker.docker_compose:
+        project_src: "{{ app_directory }}"
+        state: present
+        restarted: true

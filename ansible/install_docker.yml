@@ -1,0 +1,72 @@
+- name: Install Docker on Ubuntu
+  hosts: all
+  become: true
+  vars:
+    ansible_user: pelin
+    ansible_become_password: "pelin"
+
+  tasks:
+    - name: Update apt package index
+      apt:
+        update_cache: yes
+
+    - name: Install dependencies for Docker
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: Add Docker's official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Fetch Ubuntu version codename
+      command: lsb_release -cs
+      register: ubuntu_codename
+      changed_when: false
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ubuntu_codename.stdout }} stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name: docker-ce
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+      ignore_errors: yes  # Ignore errors to allow diagnostic gathering
+
+    - name: Check Docker service status
+      command: systemctl status docker.service
+      register: docker_status
+      failed_when: false
+      changed_when: false
+
+    - name: Display Docker service status
+      debug:
+        var: docker_status.stdout
+
+    - name: Check Docker service logs
+      command: journalctl -xeu docker.service
+      register: docker_logs
+      failed_when: false
+      changed_when: false
+
+    - name: Display Docker service logs
+      debug:
+        var: docker_logs.stdout
+
+    - name: Install Docker Python module
+      pip:
+        name: docker
+        state: present
